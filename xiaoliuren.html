@@ -6,7 +6,22 @@
 </head>
 <body>
   <div id="output"></div>
+  <button id="toggleInterpretation">显示三才解读</button>
+  <div id="interpretationPanel" style="display:none;"></div>
   <script>
+    const interpretationMap = {
+      "事件": ["起因","过程","结果"],
+      "时间": ["过去","不久前","现在"],
+      "环境": ["家庭环境","当前环境","自己"],
+      "问人": ["长辈","同辈","自己"],
+      "身体": ["头部","上身","下身"],
+      "事业": ["外因","类型","内因"],
+      "寻物": ["环境","地点","方位"],
+      "问财": ["贵人","方位","状态"],
+      "感情": ["对象","状态","自己"],
+      "射覆": ["形状","颜色","性质"]
+    };
+
     function print(msg) {
       document.getElementById('output').innerHTML += msg + '<br>';
     }
@@ -320,6 +335,9 @@
       print("一传（起月）【前】: " + liurenMap[chuan1]);
       print("二传（起日）【中】: " + liurenMap[chuan2]);
       print("三传（起时）【后】: " + liurenMap[chuan3]);
+      print("");
+      print("");
+
       return {
         first: { num: chuan1, name: liurenMap[chuan1] },
         second: { num: chuan2, name: liurenMap[chuan2] },
@@ -327,6 +345,31 @@
       };
     }
     xiaoliurenMiChuan(lunar.month, lunar.day, sc.num);
+
+    let interpretationsRendered = false;
+    function renderInterpretations() {
+      if (interpretationsRendered) return;
+      const panel = document.getElementById('interpretationPanel');
+      let html = '<table border="1"><tr><th>类别</th><th>前</th><th>中</th><th>后</th></tr>';
+      for (const [key, vals] of Object.entries(interpretationMap)) {
+        html += `<tr><td>${key}</td><td>${vals[0]}</td><td>${vals[1]}</td><td>${vals[2]}</td></tr>`;
+      }
+      html += '</table>';
+      panel.innerHTML = html;
+      interpretationsRendered = true;
+    }
+
+    document.getElementById('toggleInterpretation').addEventListener('click', function() {
+      const panel = document.getElementById('interpretationPanel');
+      if (panel.style.display === 'none') {
+        if (!interpretationsRendered) renderInterpretations();
+        panel.style.display = 'block';
+        this.textContent = '隐藏三才解读';
+      } else {
+        panel.style.display = 'none';
+        this.textContent = '显示三才解读';
+      }
+    });
 
   </script>
 </body>
