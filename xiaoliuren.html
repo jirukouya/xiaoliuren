@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>小六壬 真太阳时农历全功能</title>
+</head>
+<body>
+  <div id="output"></div>
+  <script>
+    function print(msg) {
+      document.getElementById('output').innerHTML += msg + '<br>';
+    }
+
+    // ========== 1. 输入设置 ==========
+    // 示例输入日期和时间（可自定义）
+    let inputStr = "2025,08,03,19:55";
+    // 地理位置（经度，东经为正，西经为负），示例：上海
+    const longitude = 108.3423;
+    // 设置时区字符串
+    const tzStr = "+0800"; // 支持直接传递变量
+
+    // ========== 2. 时区字符串转数字 ==========
+    // 支持 "+0800"、"-0530"等格式自动转数字
+    function parseTimezone(tzStr) {
+        let sign = tzStr.startsWith('-') ? -1 : 1;
+        let hours = parseInt(tzStr.substr(1, 2), 10);
+        let minutes = parseInt(tzStr.substr(3, 2), 10);
+        return sign * (hours + minutes / 60);
+    }
+    // 解析得到数字型时区
+    const timezone = parseTimezone(tzStr);
+
+    // 之后所有 getTrueSolarTime 调用直接用 timezone 即可
+    
+
+    // ========== 3. 拆解阳历日期和时间 ==========
+    function splitCustomDateTime(str) {
+      let parts = str.split(',');
+      let dateVar = parts.slice(0, 3).join(',');
+      let [hour, minute] = parts[3].split(':').map(Number);
+      return {
+        dateVar, // 2025,07,20
+        hour,    // 22
+        minute   // 51
+      };
+    }
+
+    let res = splitCustomDateTime(inputStr);
+    //print("原始输入：" + inputStr);
+    print("现在日期时间：" +
+      res.dateVar.replace(/^(\d+),(\d+),(\d+)$/, "$1年$2月$3日") + " " +
+      (res.hour < 10 ? "0"+res.hour : res.hour) + ":" +
+      (res.minute < 10 ? "0"+res.minute : res.minute)
+    );
+    //显示现在地理位置
+    print("现在地理位置:Current Location (City), Current Location (State), Current Location (Region)");
+
+
+    // ========== 4. 真太阳时校正（含均时差EoT） ==========
+    function getTrueSolarTimeEoT(year, month, day, hour, minute, longitude, timezone) {
+      function getJulianDay(y, m, d) {
+          if (m <= 2) {
+              y -= 1; m += 12;
+          }
+          const A = Math.floor(y / 100);
+          const B = 2 - A + Math.floor(A / 4);
+          return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+      }
+      function getDayOfYear(y, m, d) {
+          const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+          if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) monthDays[1] = 29;
+          return monthDays.slice(0, m-1).reduce((a,b)=>a+b,0) + d;
+      }
+      let N = getDayOfYear(year, month, day);
+      let B = 2 * Math.PI * (N - 81) / 364;
+      let EoT = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // 单位：分钟
+      let timeInMinutes = hour * 60 + minute;
+      let standardLongitude = timezone * 15;
+      let longitudeCorrection = (longitude - standardLongitude) * 4;
+      let trueTimeInMinutes = timeInMinutes + longitudeCorrection + EoT;
+      let trueHour = Math.floor(trueTimeInMinutes / 60);
+      let trueMinute = Math.round(trueTimeInMinutes % 60);
+      if (trueMinute < 0) {
+          trueMinute += 60;
+          trueHour -= 1;
+      }
+      if (trueHour < 0) trueHour += 24;
+      if (trueHour >= 24) trueHour -= 24;
+      return {
+          hour: trueHour,
+          minute: trueMinute,
+          eot: EoT
+      };
+    }
+
+    // 拆解阳历日期
+    let [y, m, d] = res.dateVar.split(',').map(Number);
+    let trueSolar = getTrueSolarTimeEoT(y, m, d, res.hour, res.minute, longitude, timezone);
+    print("");
+    print("【真太阳时校正(EoT)】" +
+      trueSolar.hour.toString().padStart(2, '0') + "点" +
+      trueSolar.minute.toString().padStart(2, '0') + "分" +
+      "（均时差修正: " + trueSolar.eot.toFixed(2) + "分钟）"
+    );
+
+    // ========== 5. 阳历转农历 ==========
+    function solarToLunar(y, m, d) {
+      var lunarInfo = [
+        0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
+        0x04ae0,0x0a5b6,0x0a4d0,0x0d250,0x1d255,0x0b540,0x0d6a0,0x0ada2,0x095b0,0x14977,
+        0x04970,0x0a4b0,0x0b4b5,0x06a50,0x06d40,0x1ab54,0x02b60,0x09570,0x052f2,0x04970,
+        0x06566,0x0d4a0,0x0ea50,0x06e95,0x05ad0,0x02b60,0x186e3,0x092e0,0x1c8d7,0x0c950,
+        0x0d4a0,0x1d8a6,0x0b550,0x056a0,0x1a5b4,0x025d0,0x092d0,0x0d2b2,0x0a950,0x0b557,
+        0x06ca0,0x0b550,0x15355,0x04da0,0x0a5d0,0x14573,0x052d0,0x0a9a8,0x0e950,0x06aa0,
+        0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,0x0f263,0x0d950,0x05b57,0x056a0,
+        0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,0x0d558,0x0b540,0x0b5a0,0x195a6,
+        0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,0x06d40,0x0af46,0x0ab60,0x09570,
+        0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,0x055c0,0x0ab60,0x096d5,0x092e0,
+        0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,0x0abb7,0x025d0,0x092d0,0x0cab5,
+        0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,0x0a5b0,0x15176,0x052b0,0x0a930,
+        0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,0x0a4e0,0x0d260,0x0ea65,0x0d530,
+        0x05aa0,0x076a3,0x096d0,0x04bd7,0x04ad0,0x0a4d0,0x1d0b6,0x0d250,0x0d520,0x0dd45,
+        0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,0x0aa50,0x1b255,0x06d20,0x0ada0,
+        0x14b63,0x09370,0x049f8,0x04970,0x064b0,0x168a6,0x0ea50,0x06b20,0x1a6c4,0x0aae0,
+        0x0a2e0,0x0d2e3,0x0c960,0x0d557,0x0d4a0,0x0da50,0x05d55,0x056a0,0x0a6d0,0x055d4,
+        0x052d0,0x0a9b8,0x0e950,0x06aa0,0x0aea6,0x0ab50,0x04b60,0x0aae4,0x0a570,0x05260,
+        0x0f263,0x0d950,0x05b57,0x056a0,0x096d0,0x04dd5,0x04ad0,0x0a4d0,0x0d4d4,0x0d250,
+        0x0d558,0x0b540,0x0b5a0,0x195a6,0x095b0,0x049b0,0x0a974,0x0a4b0,0x0b27a,0x06a50,
+        0x06d40,0x0af46,0x0ab60,0x09570,0x04af5,0x04970,0x064b0,0x074a3,0x0ea50,0x06b58,
+        0x055c0,0x0ab60,0x096d5,0x092e0,0x0c960,0x0d954,0x0d4a0,0x0da50,0x07552,0x056a0,
+        0x0abb7,0x025d0,0x092d0,0x0cab5,0x0a950,0x0b4a0,0x0baa4,0x0ad50,0x055d9,0x04ba0,
+        0x0a5b0,0x15176,0x052b0,0x0a930,0x07954,0x06aa0,0x0ad50,0x05b52,0x04b60,0x0a6e6,
+        0x0a4e0,0x0d260,0x0ea65,0x0d530,0x05aa0,0x076a3,0x096d0,0x04bd7,0x04ad0,0x0a4d0,
+        0x1d0b6,0x0d250,0x0d520,0x0dd45,0x0b5a0,0x056d0,0x055b2,0x049b0,0x0a577,0x0a4b0,
+        0x0aa50,0x1b255,0x06d20,0x0ada0
+      ];
+
+      function monthDays(year, month) {
+        return (lunarInfo[year - 1900] & (0x10000 >> month)) ? 30 : 29;
+      }
+      function leapMonth(year) {
+        return lunarInfo[year - 1900] & 0xf;
+      }
+      function leapDays(year) {
+        if (leapMonth(year)) {
+          return (lunarInfo[year - 1900] & 0x10000) ? 30 : 29;
+        } else {
+          return 0;
+        }
+      }
+      function yearDays(year) {
+        let sum = 348;
+        let info = lunarInfo[year - 1900];
+        for (let i = 0x8000; i > 0x8; i >>= 1) {
+          sum += (info & i) ? 1 : 0;
+        }
+        return sum + leapDays(year);
+      }
+      function getDaysBetween(date1, date2) {
+        var time1 = Date.UTC(date1[0], date1[1], date1[2]);
+        var time2 = Date.UTC(date2[0], date2[1], date2[2]);
+        return Math.floor((time1 - time2) / (24 * 60 * 60 * 1000));
+      }
+
+      var baseDate = [1900, 0, 31];
+      var objDate = [y, m - 1, d];
+      var offset = getDaysBetween(objDate, baseDate);
+
+      var year, month, day, leap = false, isLeap = false, temp = 0;
+
+      for (year = 1900; year < 2101 && offset > 0; year++) {
+        temp = yearDays(year);
+        if (offset < temp) break;
+        offset -= temp;
+      }
+      if (offset < 0) {
+        offset += temp;
+        year--;
+      }
+      let leapMonthNum = leapMonth(year);
+
+      for (month = 1; month < 13 && offset > 0; month++) {
+        if (leapMonthNum > 0 && month === (leapMonthNum + 1) && !leap) {
+          --month;
+          temp = leapDays(year);
+          leap = true;
+        } else {
+          temp = monthDays(year, month);
+        }
+        if (leap && month === (leapMonthNum + 1)) leap = false;
+        offset -= temp;
+      }
+      if (offset < 0) {
+        offset += temp;
+        month--;
+      }
+      day = offset + 1;
+      isLeap = (leapMonthNum > 0 && month === leapMonthNum + 1);
+
+      return {
+        year: year,
+        month: month,
+        day: day,
+        isLeap: isLeap
+      };
+    }
+
+    let lunar = solarToLunar(y, m, d);
+    print("");
+    print("阳历：" + y + "年" + m + "月" + d + "日");
+    print("农历：" + lunar.year + "年" + (lunar.isLeap ? "闰" : "") + lunar.month + "月" + lunar.day + "日");
+
+    // ========== 6. 真太阳时的时辰 ==========
+    function getShichenNumber(hour, minute) {
+      var shichenList = [
+        { num: 1, name: "子", label: "子时", start: 23, end: 0 },
+        { num: 2, name: "丑", label: "丑时", start: 1, end: 2 },
+        { num: 3, name: "寅", label: "寅时", start: 3, end: 4 },
+        { num: 4, name: "卯", label: "卯时", start: 5, end: 6 },
+        { num: 5, name: "辰", label: "辰时", start: 7, end: 8 },
+        { num: 6, name: "巳", label: "巳时", start: 9, end: 10 },
+        { num: 7, name: "午", label: "午时", start: 11, end: 12 },
+        { num: 8, name: "未", label: "未时", start: 13, end: 14 },
+        { num: 9, name: "申", label: "申时", start: 15, end: 16 },
+        { num: 10, name: "酉", label: "酉时", start: 17, end: 18 },
+        { num: 11, name: "戌", label: "戌时", start: 19, end: 20 },
+        { num: 12, name: "亥", label: "亥时", start: 21, end: 22 }
+      ];
+      // 23:00-23:59 或 0:00-0:59 都归属子时
+      if ((hour === 23) || (hour === 0)) {
+        return shichenList[0];
+      }
+      for (var i = 1; i < shichenList.length; i++) {
+        var sc = shichenList[i];
+        if (hour >= sc.start && hour <= sc.end) {
+          return sc;
+        }
+      }
+      return null;
+    }
+
+    // 用真太阳时的时辰编号
+    var sc = getShichenNumber(trueSolar.hour, trueSolar.minute);
+    if (sc) {
+      let h = trueSolar.hour.toString().padStart(2, '0');
+      let m = trueSolar.minute.toString().padStart(2, '0');
+      print(
+        `真太阳时对应时辰：${h}点${m}分，` +
+        `时辰名称：${sc.label}（${sc.name}），` +
+        `时辰编号：${sc.num.toString().padStart(2, '0')}`
+      );
+    } else {
+      print("时辰计算失败，请检查输入时间是否正确（0-23点）");
+    }
+
+    // ========== 7. 小六壬相关计算 ==========
+    function sumLunarAndShichen(lunar, sc) {
+      let sum = lunar.month + lunar.day + sc.num;
+      let result = sum - 2;
+      return {
+        month: lunar.month,
+        day: lunar.day,
+        shichenNum: sc.num,
+        sum: sum,
+        result: result
+      };
+    }
+    let calc = sumLunarAndShichen(lunar, sc);
+    print("");
+    print("月：" + calc.month + " 日：" + calc.day + "  时辰编号：" + calc.shichenNum);
+    print("总和：" + calc.sum + "，减2后：" + calc.result);
+    print("");
+
+    // 主流三传
+    function xiaoliurenSanChuan(lunarMonth, lunarDay, shichenNum) {
+      const liurenMap = {
+        1: "大安",
+        2: "留连",
+        3: "速喜",
+        4: "赤口",
+        5: "小吉",
+        6: "空亡"
+      };
+      let chuan1 = ((lunarMonth - 1) % 6) + 1;
+      let chuan2 = ((chuan1 + lunarDay - 2) % 6) + 1;
+      let chuan3 = ((chuan2 + shichenNum - 2) % 6) + 1;
+      print("");
+      print("小六壬主流版");
+      print("三传阶段：");
+      print("一传（起月）【前】: " + liurenMap[chuan1]);
+      print("二传（起日）【中】: " + liurenMap[chuan2]);
+      print("三传（起时）【后】: " + liurenMap[chuan3]);
+      return {
+        first: { num: chuan1, name: liurenMap[chuan1] },
+        second: { num: chuan2, name: liurenMap[chuan2] },
+        third: { num: chuan3, name: liurenMap[chuan3] }
+      };
+    }
+    xiaoliurenSanChuan(lunar.month, lunar.day, sc.num);
+
+    // 秘传三传
+    function xiaoliurenMiChuan(lunarMonth, lunarDay, shichenNum) {
+      const liurenMap = {
+        1: "大安「木」",
+        2: "留连「木」",
+        3: "速喜「火」",
+        4: "赤口「金」",
+        5: "小吉「水」",
+        6: "空亡「土」",
+        7: "病符「土」",
+        8: "天德「金」",
+        9: "桃花「土」"
+      };
+      let chuan1 = ((lunarMonth - 1) % 9) + 1;
+      let chuan2 = ((chuan1 + lunarDay - 2) % 9) + 1;
+      let chuan3 = ((chuan2 + shichenNum - 2) % 9) + 1;
+      print("");
+      print("小六壬秘传版");
+      print("三传阶段：");
+      print("一传（起月）【前】: " + liurenMap[chuan1]);
+      print("二传（起日）【中】: " + liurenMap[chuan2]);
+      print("三传（起时）【后】: " + liurenMap[chuan3]);
+      return {
+        first: { num: chuan1, name: liurenMap[chuan1] },
+        second: { num: chuan2, name: liurenMap[chuan2] },
+        third: { num: chuan3, name: liurenMap[chuan3] }
+      };
+    }
+    xiaoliurenMiChuan(lunar.month, lunar.day, sc.num);
+
+  </script>
+</body>
+</html>
