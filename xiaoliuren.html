@@ -6,6 +6,13 @@
 </head>
 <body>
   <div id="output"></div>
+  <br><br>
+  <button id="toggleInterpretation">Toggle Interpretation</button>
+  <div id="interpretationPanel" style="display:none; margin-top:20px;">
+    <table border="1">
+      <tr><td>Interpretation content goes here.</td></tr>
+    </table>
+  </div>
   <script>
     function print(msg) {
       document.getElementById('output').innerHTML += msg + '<br>';
@@ -327,6 +334,12 @@
       };
     }
     xiaoliurenMiChuan(lunar.month, lunar.day, sc.num);
+
+    // Toggle interpretation panel visibility
+    document.getElementById('toggleInterpretation').addEventListener('click', function() {
+      const panel = document.getElementById('interpretationPanel');
+      panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+    });
 
   </script>
 </body>
