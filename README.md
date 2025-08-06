@@ -28,3 +28,6 @@
 
 1. 克隆或下载本仓库到本地
 2. 用文本编辑器（如 VSCode）打开 `xiaoliuren.html`
+3. 通过以下方式设定输入：
+   - 将 `inputStr` 设为 `YYYY,MM,DD,HH:MM` 形式的字符串，执行完整的日期时间推算
+   - 若 `inputStr` 为空字符串，则直接使用 `firstNum`、`secondNum`、`thirdNum` 作为月、日、时的三传数字
