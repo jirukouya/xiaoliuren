@@ -63,17 +63,6 @@
       };
     }
 
-    let res = splitCustomDateTime(inputStr);
-    //print("原始输入：" + inputStr);
-    print("现在日期时间：" +
-      res.dateVar.replace(/^(\d+),(\d+),(\d+)$/, "$1年$2月$3日") + " " +
-      (res.hour < 10 ? "0"+res.hour : res.hour) + ":" +
-      (res.minute < 10 ? "0"+res.minute : res.minute)
-    );
-    //显示现在地理位置
-    print("现在地理位置:Current Location (City), Current Location (State), Current Location (Region)");
-
-
     // ========== 4. 真太阳时校正（含均时差EoT） ==========
     function getTrueSolarTimeEoT(year, month, day, hour, minute, longitude, timezone) {
       function getJulianDay(y, m, d) {
@@ -110,16 +99,6 @@
           eot: EoT
       };
     }
-
-    // 拆解阳历日期
-    let [y, m, d] = res.dateVar.split(',').map(Number);
-    let trueSolar = getTrueSolarTimeEoT(y, m, d, res.hour, res.minute, longitude, timezone);
-    print("");
-    print("【真太阳时校正(EoT)】" +
-      trueSolar.hour.toString().padStart(2, '0') + "点" +
-      trueSolar.minute.toString().padStart(2, '0') + "分" +
-      "（均时差修正: " + trueSolar.eot.toFixed(2) + "分钟）"
-    );
 
     // ========== 5. 阳历转农历 ==========
     function solarToLunar(y, m, d) {
@@ -223,11 +202,6 @@
       };
     }
 
-    let lunar = solarToLunar(y, m, d);
-    print("");
-    print("阳历：" + y + "年" + m + "月" + d + "日");
-    print("农历：" + lunar.year + "年" + (lunar.isLeap ? "闰" : "") + lunar.month + "月" + lunar.day + "日");
-
     // ========== 6. 真太阳时的时辰 ==========
     function getShichenNumber(hour, minute) {
       var shichenList = [
@@ -256,19 +230,45 @@
       }
       return null;
     }
-
-    // 用真太阳时的时辰编号
-    var sc = getShichenNumber(trueSolar.hour, trueSolar.minute);
-    if (sc) {
-      let h = trueSolar.hour.toString().padStart(2, '0');
-      let m = trueSolar.minute.toString().padStart(2, '0');
-      print(
-        `真太阳时对应时辰：${h}点${m}分，` +
-        `时辰名称：${sc.label}（${sc.name}），` +
-        `时辰编号：${sc.num.toString().padStart(2, '0')}`
+    let lunar, sc;
+    if (inputStr) {
+      let res = splitCustomDateTime(inputStr);
+      print("现在日期时间：" +
+        res.dateVar.replace(/^(\d+),(\d+),(\d+)$/, "$1年$2月$3日") + " " +
+        (res.hour < 10 ? "0"+res.hour : res.hour) + ":" +
+        (res.minute < 10 ? "0"+res.minute : res.minute)
       );
+      print("现在地理位置:Current Location (City), Current Location (State), Current Location (Region)");
+
+      let [y, m, d] = res.dateVar.split(',').map(Number);
+      let trueSolar = getTrueSolarTimeEoT(y, m, d, res.hour, res.minute, longitude, timezone);
+      print("");
+      print("【真太阳时校正(EoT)】" +
+        trueSolar.hour.toString().padStart(2, '0') + "点" +
+        trueSolar.minute.toString().padStart(2, '0') + "分" +
+        "（均时差修正: " + trueSolar.eot.toFixed(2) + "分钟）"
+      );
+
+      lunar = solarToLunar(y, m, d);
+      print("");
+      print("阳历：" + y + "年" + m + "月" + d + "日");
+      print("农历：" + lunar.year + "年" + (lunar.isLeap ? "闰" : "") + lunar.month + "月" + lunar.day + "日");
+
+      sc = getShichenNumber(trueSolar.hour, trueSolar.minute);
+      if (sc) {
+        let h = trueSolar.hour.toString().padStart(2, '0');
+        let mStr = trueSolar.minute.toString().padStart(2, '0');
+        print(
+          `真太阳时对应时辰：${h}点${mStr}分，` +
+          `时辰名称：${sc.label}（${sc.name}），` +
+          `时辰编号：${sc.num.toString().padStart(2, '0')}`
+        );
+      } else {
+        print("时辰计算失败，请检查输入时间是否正确（0-23点）");
+      }
     } else {
-      print("时辰计算失败，请检查输入时间是否正确（0-23点）");
+      lunar = { month: firstNum, day: secondNum };
+      sc = { num: thirdNum };
     }
 
     // ========== 7. 小六壬相关计算 ==========
