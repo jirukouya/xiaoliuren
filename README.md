@@ -28,9 +28,15 @@
 
 1. 克隆或下载本仓库到本地
 2. 用文本编辑器（如 VSCode）打开 `xiaoliuren.html`
-3. 按需修改顶部输入（日期、经度、时区字符串），如：
+3. 按需修改顶部输入（日期、经度、时区字符串、小六壬象数），如：
 
-   ```js
-   let inputStr = "2025,07,20,22:51"; // 日期时间
-   const longitude = 121.4737;        // 经度（上海举例）
-   const tzStr = "+0800";             // 时区字符串
+```js
+let inputStr = "2025,07,20,22:51"; // 日期时间
+const firstNum = 1;  // 第一象数字
+const secondNum = 2; // 第二象数字
+const thirdNum = 3;  // 第三象数字
+const longitude = 121.4737;        // 经度（上海举例）
+const tzStr = "+0800";             // 时区字符串
+```
+
+`firstNum`、`secondNum`、`thirdNum` 分别对应小六壬的第一、第二、第三象数字，用于三传推算。
