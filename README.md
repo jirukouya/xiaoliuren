@@ -28,3 +28,13 @@
 
 1. 克隆或下载本仓库到本地
 2. 用文本编辑器（如 VSCode）打开 `xiaoliuren.html`
+
+---
+
+## 开发者说明
+
+- `sumLunarAndShichen(a, b, c)`: 将三项数字相加并减二，供三传推算使用
+- `xiaoliurenSanChuan(a, b, c)`: 根据三数计算主流小六壬三传
+- `xiaoliurenMiChuan(a, b, c)`: 根据三数计算九格秘传三传
+
+上述函数既可使用农历月、日及时辰编号，也可直接传入 `firstNum`、`secondNum`、`thirdNum` 作为数字备用输入。

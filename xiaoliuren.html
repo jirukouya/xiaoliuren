@@ -272,25 +272,30 @@
     }
 
     // ========== 7. 小六壬相关计算 ==========
-    function sumLunarAndShichen(lunar, sc) {
-      let sum = lunar.month + lunar.day + sc.num;
+    function sumLunarAndShichen(a, b, c) {
+      let sum = a + b + c;
       let result = sum - 2;
       return {
-        month: lunar.month,
-        day: lunar.day,
-        shichenNum: sc.num,
+        a: a,
+        b: b,
+        c: c,
         sum: sum,
         result: result
       };
     }
-    let calc = sumLunarAndShichen(lunar, sc);
+    let calc;
+    if (sc) {
+      calc = sumLunarAndShichen(lunar.month, lunar.day, sc.num);
+    } else {
+      calc = sumLunarAndShichen(firstNum, secondNum, thirdNum);
+    }
     print("");
-    print("月：" + calc.month + " 日：" + calc.day + "  时辰编号：" + calc.shichenNum);
+    print("月：" + calc.a + " 日：" + calc.b + "  时辰编号：" + calc.c);
     print("总和：" + calc.sum + "，减2后：" + calc.result);
     print("");
 
     // 主流三传
-    function xiaoliurenSanChuan(lunarMonth, lunarDay, shichenNum) {
+    function xiaoliurenSanChuan(a, b, c) {
       const liurenMap = {
         1: "大安",
         2: "留连",
@@ -299,9 +304,9 @@
         5: "小吉",
         6: "空亡"
       };
-      let chuan1 = ((lunarMonth - 1) % 6) + 1;
-      let chuan2 = ((chuan1 + lunarDay - 2) % 6) + 1;
-      let chuan3 = ((chuan2 + shichenNum - 2) % 6) + 1;
+      let chuan1 = ((a - 1) % 6 + 6) % 6 + 1;
+      let chuan2 = ((chuan1 + b - 2) % 6 + 6) % 6 + 1;
+      let chuan3 = ((chuan2 + c - 2) % 6 + 6) % 6 + 1;
       print("");
       print("小六壬主流版");
       print("三传阶段：");
@@ -314,10 +319,14 @@
         third: { num: chuan3, name: liurenMap[chuan3] }
       };
     }
-    xiaoliurenSanChuan(lunar.month, lunar.day, sc.num);
+    if (sc) {
+      xiaoliurenSanChuan(lunar.month, lunar.day, sc.num);
+    } else {
+      xiaoliurenSanChuan(firstNum, secondNum, thirdNum);
+    }
 
     // 秘传三传
-    function xiaoliurenMiChuan(lunarMonth, lunarDay, shichenNum) {
+    function xiaoliurenMiChuan(a, b, c) {
       const liurenMap = {
         1: "大安「木」",
         2: "留连「木」",
@@ -329,9 +338,9 @@
         8: "天德「金」",
         9: "桃花「土」"
       };
-      let chuan1 = ((lunarMonth - 1) % 9) + 1;
-      let chuan2 = ((chuan1 + lunarDay - 2) % 9) + 1;
-      let chuan3 = ((chuan2 + shichenNum - 2) % 9) + 1;
+      let chuan1 = ((a - 1) % 9 + 9) % 9 + 1;
+      let chuan2 = ((chuan1 + b - 2) % 9 + 9) % 9 + 1;
+      let chuan3 = ((chuan2 + c - 2) % 9 + 9) % 9 + 1;
       print("");
       print("小六壬秘传版");
       print("三传阶段：");
@@ -347,7 +356,11 @@
         third: { num: chuan3, name: liurenMap[chuan3] }
       };
     }
-    xiaoliurenMiChuan(lunar.month, lunar.day, sc.num);
+    if (sc) {
+      xiaoliurenMiChuan(lunar.month, lunar.day, sc.num);
+    } else {
+      xiaoliurenMiChuan(firstNum, secondNum, thirdNum);
+    }
 
     let interpretationsRendered = false;
     function renderInterpretations() {
