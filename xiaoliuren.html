@@ -2,12 +2,101 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>小六壬 真太阳时农历全功能</title>
+  <title>小六壬 起占</title>
+  <style>
+    body {
+      background: #f8fafc;
+      font-family: system-ui, sans-serif;
+      margin: 0; padding: 0;
+      min-height: 100vh;
+    }
+    #container {
+      max-width: 750px;
+      margin: 32px auto 0 auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 2px 12px 0 #0001;
+      padding: 36px 36px 28px 36px;
+    }
+    #output {
+      font-size: 1.05rem;
+      color: #222;
+      background: #f3f6f9;
+      border-radius: 12px;
+      min-height: 150px;
+      margin-bottom: 16px;
+      padding: 16px;
+      box-shadow: 0 1px 5px 0 #0001;
+      word-break: break-all;
+    }
+    button {
+      background: #338cf3;
+      color: #fff;
+      font-size: 1rem;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 22px;
+      margin: 6px 12px 6px 0;
+      cursor: pointer;
+      box-shadow: 0 2px 8px 0 #338cf333;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #1c6fd7;
+    }
+    .panel {
+      background: #f3f7fb;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px 0 #338cf311;
+      margin-top: 14px;
+      margin-bottom: 18px;
+      padding: 14px 16px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 1px 5px 0 #338cf311;
+      margin-top: 8px;
+    }
+    th, td {
+      border: 1px solid #e1e6ee;
+      padding: 9px 7px;
+      text-align: left;
+      font-size: 1rem;
+    }
+    th {
+      background: #f1f4fa;
+      color: #338cf3;
+      font-weight: 600;
+    }
+    td {
+      color: #333;
+    }
+    .liu-title {
+      display: inline-block;
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin: 22px 0 4px 0;
+      color: #1857b1;
+      letter-spacing: 1px;
+    }
+    @media (max-width: 600px) {
+      #container { padding: 14px 4vw; }
+      table, th, td { font-size: 0.93rem; }
+    }
+  </style>
 </head>
 <body>
-  <div id="output"></div>
-  <button id="toggleInterpretation">显示三才解读</button>
-  <div id="interpretationPanel" style="display:none;"></div>
+  <div id="container">
+    <div id="output"></div>
+    <button id="toggleInterpretation">显示三才解读</button>
+    <button id="toggleJiushen">显示签象解释</button>
+    <button id="copyOutput">复制全部结果</button>
+    <div id="interpretationPanel" class="panel" style="display:none;"></div>
+    <div id="jiushenPanel" class="panel" style="display:none;"></div>
+  </div>
   <script>
     const interpretationMap = {
       "事件": ["起因","过程","结果"],
@@ -28,10 +117,40 @@
 
     // ========== 1. 输入设置 ==========
     // 示例输入日期和时间（可自定义）
-    let inputStr = "2025,08,03,19:55";
-    const firstNum = 1;  // 第一象数字
-    const secondNum = 2; // 第二象数字
-    const thirdNum = 3;  // 第三象数字
+    let inputStr = "2025,09,18,18:37"; // yyyy,MM,dd,HH:mm
+
+    function splitCustomDateTime(str) {
+      try {
+        let parts = str.split(',');
+        if(parts.length < 4) return null;
+        let dateVar = parts.slice(0, 3).join(',');
+        let [hour, minute] = parts[3].split(':').map(Number);
+        if (isNaN(hour) || isNaN(minute)) return null;
+        return {
+          dateVar,
+          hour,
+          minute
+        };
+      } catch(e) {
+        return null;
+      }
+    }
+    let res = inputStr ? splitCustomDateTime(inputStr) : null;
+    let lunar = null, sc = null, y, m, d, trueSolar;
+
+    const firstNum = "100";  // 第一象数字
+    const secondNum = "200"; // 第二象数字
+    const thirdNum = "300";  // 第三象数字
+
+    // 新增：统一获取三传数字的函数
+    function getSanChuanNumbers(res, lunar, sc, firstNum, secondNum, thirdNum) {
+      if (!res || !res.dateVar) {
+        return { month: firstNum, day: secondNum, shichen: thirdNum };
+      } else {
+        return { month: lunar.month, day: lunar.day, shichen: sc.num };
+      }
+    }
+
     // 地理位置（经度，东经为正，西经为负），示例：上海
     const longitude = 108.3423;
     // 设置时区字符串
@@ -51,77 +170,29 @@
     // 之后所有 getTrueSolarTime 调用直接用 timezone 即可
     
 
-    // ========== 3. 拆解阳历日期和时间 ==========
-    function splitCustomDateTime(str) {
-      let parts = str.split(',');
-      let dateVar = parts.slice(0, 3).join(',');
-      let [hour, minute] = parts[3].split(':').map(Number);
-      return {
-        dateVar, // 2025,07,20
-        hour,    // 22
-        minute   // 51
-      };
+    // 只有 res 有效才继续往下执行
+    if (res) {
+      [y, m, d] = res.dateVar.split(',').map(s=>parseInt(s,10));
+      if(isNaN(y) || isNaN(m) || isNaN(d)){
+        print("输入的日期格式有误，请检查！");
+      } else {
+        trueSolar = getTrueSolarTimeEoT(y, m, d, res.hour, res.minute, longitude, timezone);
+        lunar = solarToLunar(y, m, d);
+        sc = getShichenNumber(trueSolar.hour, trueSolar.minute);
+      }
     }
-
-    let res = splitCustomDateTime(inputStr);
-    //print("原始输入：" + inputStr);
-    print("现在日期时间：" +
-      res.dateVar.replace(/^(\d+),(\d+),(\d+)$/, "$1年$2月$3日") + " " +
-      (res.hour < 10 ? "0"+res.hour : res.hour) + ":" +
-      (res.minute < 10 ? "0"+res.minute : res.minute)
-    );
-    //显示现在地理位置
+    if(res){
+      print("现在日期时间：" +
+        res.dateVar.replace(/^(\d+),(\d+),(\d+)$/, "$1年$2月$3日") + " " +
+        (res.hour < 10 ? "0"+res.hour : res.hour) + ":" +
+        (res.minute < 10 ? "0"+res.minute : res.minute)
+      );
+    }
     print("现在地理位置:Current Location (City), Current Location (State), Current Location (Region)");
 
 
     // ========== 4. 真太阳时校正（含均时差EoT） ==========
-    function getTrueSolarTimeEoT(year, month, day, hour, minute, longitude, timezone) {
-      function getJulianDay(y, m, d) {
-          if (m <= 2) {
-              y -= 1; m += 12;
-          }
-          const A = Math.floor(y / 100);
-          const B = 2 - A + Math.floor(A / 4);
-          return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
-      }
-      function getDayOfYear(y, m, d) {
-          const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
-          if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) monthDays[1] = 29;
-          return monthDays.slice(0, m-1).reduce((a,b)=>a+b,0) + d;
-      }
-      let N = getDayOfYear(year, month, day);
-      let B = 2 * Math.PI * (N - 81) / 364;
-      let EoT = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // 单位：分钟
-      let timeInMinutes = hour * 60 + minute;
-      let standardLongitude = timezone * 15;
-      let longitudeCorrection = (longitude - standardLongitude) * 4;
-      let trueTimeInMinutes = timeInMinutes + longitudeCorrection + EoT;
-      let trueHour = Math.floor(trueTimeInMinutes / 60);
-      let trueMinute = Math.round(trueTimeInMinutes % 60);
-      if (trueMinute < 0) {
-          trueMinute += 60;
-          trueHour -= 1;
-      }
-      if (trueHour < 0) trueHour += 24;
-      if (trueHour >= 24) trueHour -= 24;
-      return {
-          hour: trueHour,
-          minute: trueMinute,
-          eot: EoT
-      };
-    }
-
-    // 拆解阳历日期
-    let [y, m, d] = res.dateVar.split(',').map(Number);
-    let trueSolar = getTrueSolarTimeEoT(y, m, d, res.hour, res.minute, longitude, timezone);
-    print("");
-    print("【真太阳时校正(EoT)】" +
-      trueSolar.hour.toString().padStart(2, '0') + "点" +
-      trueSolar.minute.toString().padStart(2, '0') + "分" +
-      "（均时差修正: " + trueSolar.eot.toFixed(2) + "分钟）"
-    );
-
-    // ========== 5. 阳历转农历 ==========
+    // ========== 农历转换 ==========
     function solarToLunar(y, m, d) {
       var lunarInfo = [
         0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
@@ -222,11 +293,57 @@
         isLeap: isLeap
       };
     }
+    function getTrueSolarTimeEoT(year, month, day, hour, minute, longitude, timezone) {
+      function getJulianDay(y, m, d) {
+          if (m <= 2) {
+              y -= 1; m += 12;
+          }
+          const A = Math.floor(y / 100);
+          const B = 2 - A + Math.floor(A / 4);
+          return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+      }
+      function getDayOfYear(y, m, d) {
+          const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+          if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) monthDays[1] = 29;
+          return monthDays.slice(0, m-1).reduce((a,b)=>a+b,0) + d;
+      }
+      let N = getDayOfYear(year, month, day);
+      let B = 2 * Math.PI * (N - 81) / 364;
+      let EoT = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // 单位：分钟
+      let timeInMinutes = hour * 60 + minute;
+      let standardLongitude = timezone * 15;
+      let longitudeCorrection = (longitude - standardLongitude) * 4;
+      let trueTimeInMinutes = timeInMinutes + longitudeCorrection + EoT;
+      let trueHour = Math.floor(trueTimeInMinutes / 60);
+      let trueMinute = Math.round(trueTimeInMinutes % 60);
+      if (trueMinute < 0) {
+          trueMinute += 60;
+          trueHour -= 1;
+      }
+      if (trueHour < 0) trueHour += 24;
+      if (trueHour >= 24) trueHour -= 24;
+      return {
+          hour: trueHour,
+          minute: trueMinute,
+          eot: EoT
+      };
+    }
 
-    let lunar = solarToLunar(y, m, d);
-    print("");
-    print("阳历：" + y + "年" + m + "月" + d + "日");
-    print("农历：" + lunar.year + "年" + (lunar.isLeap ? "闰" : "") + lunar.month + "月" + lunar.day + "日");
+    if(res && lunar && trueSolar){
+      print("");
+      print("【真太阳时校正(EoT)】" +
+        trueSolar.hour.toString().padStart(2, '0') + "点" +
+        trueSolar.minute.toString().padStart(2, '0') + "分" +
+        "（均时差修正: " + trueSolar.eot.toFixed(2) + "分钟）"
+      );
+    }
+
+    if(res && lunar){
+      print("");
+      print("阳历：" + y + "年" + m + "月" + d + "日");
+      print("农历：" + lunar.year + "年" + (lunar.isLeap ? "闰" : "") + lunar.month + "月" + lunar.day + "日");
+    }
+
 
     // ========== 6. 真太阳时的时辰 ==========
     function getShichenNumber(hour, minute) {
@@ -257,9 +374,7 @@
       return null;
     }
 
-    // 用真太阳时的时辰编号
-    var sc = getShichenNumber(trueSolar.hour, trueSolar.minute);
-    if (sc) {
+    if(sc && trueSolar){
       let h = trueSolar.hour.toString().padStart(2, '0');
       let m = trueSolar.minute.toString().padStart(2, '0');
       print(
@@ -267,9 +382,10 @@
         `时辰名称：${sc.label}（${sc.name}），` +
         `时辰编号：${sc.num.toString().padStart(2, '0')}`
       );
-    } else {
+    } else if(res){
       print("时辰计算失败，请检查输入时间是否正确（0-23点）");
     }
+
 
     // ========== 7. 小六壬相关计算 ==========
     function sumLunarAndShichen(lunar, sc) {
@@ -283,11 +399,6 @@
         result: result
       };
     }
-    let calc = sumLunarAndShichen(lunar, sc);
-    print("");
-    print("月：" + calc.month + " 日：" + calc.day + "  时辰编号：" + calc.shichenNum);
-    print("总和：" + calc.sum + "，减2后：" + calc.result);
-    print("");
 
     // 主流三传
     function xiaoliurenSanChuan(lunarMonth, lunarDay, shichenNum) {
@@ -303,7 +414,7 @@
       let chuan2 = ((chuan1 + lunarDay - 2) % 6) + 1;
       let chuan3 = ((chuan2 + shichenNum - 2) % 6) + 1;
       print("");
-      print("小六壬主流版");
+      print('<span class="liu-title">小六壬主流版</span>');
       print("三传阶段：");
       print("一传（起月）【前】: " + liurenMap[chuan1]);
       print("二传（起日）【中】: " + liurenMap[chuan2]);
@@ -314,8 +425,6 @@
         third: { num: chuan3, name: liurenMap[chuan3] }
       };
     }
-    xiaoliurenSanChuan(lunar.month, lunar.day, sc.num);
-
     // 秘传三传
     function xiaoliurenMiChuan(lunarMonth, lunarDay, shichenNum) {
       const liurenMap = {
@@ -333,7 +442,7 @@
       let chuan2 = ((chuan1 + lunarDay - 2) % 9) + 1;
       let chuan3 = ((chuan2 + shichenNum - 2) % 9) + 1;
       print("");
-      print("小六壬秘传版");
+      print('<span class="liu-title">小六壬秘传版</span>');
       print("三传阶段：");
       print("一传（起月）【前】: " + liurenMap[chuan1]);
       print("二传（起日）【中】: " + liurenMap[chuan2]);
@@ -347,13 +456,36 @@
         third: { num: chuan3, name: liurenMap[chuan3] }
       };
     }
-    xiaoliurenMiChuan(lunar.month, lunar.day, sc.num);
+
+    // 获取三传数字
+    const sanChuanNumbers = getSanChuanNumbers(res, lunar, sc, firstNum, secondNum, thirdNum);
+    const monthNum = sanChuanNumbers.month;
+    const dayNum = sanChuanNumbers.day;
+    const shichenNum = sanChuanNumbers.shichen;
+
+
+    // 显示用哪个数字
+    print("");
+    if (!res) {
+      print("当前使用自定义三传数字：");
+      print("第一数字：" + monthNum);
+      print("第二数字：" + dayNum);
+      print("第三数字：" + shichenNum);
+    } else {
+      print("当前使用农历与时辰数字：");
+      print("月：" + monthNum);
+      print("日：" + dayNum);
+      print("时辰编号：" + shichenNum);
+    }
+
+    xiaoliurenSanChuan(monthNum, dayNum, shichenNum);
+    xiaoliurenMiChuan(monthNum, dayNum, shichenNum);
 
     let interpretationsRendered = false;
     function renderInterpretations() {
       if (interpretationsRendered) return;
       const panel = document.getElementById('interpretationPanel');
-      let html = '<table border="1"><tr><th>类别</th><th>前</th><th>中</th><th>后</th></tr>';
+      let html = '<table><tr><th>类别</th><th>前</th><th>中</th><th>后</th></tr>';
       for (const [key, vals] of Object.entries(interpretationMap)) {
         html += `<tr><td>${key}</td><td>${vals[0]}</td><td>${vals[1]}</td><td>${vals[2]}</td></tr>`;
       }
@@ -363,17 +495,119 @@
     }
 
     document.getElementById('toggleInterpretation').addEventListener('click', function() {
-      const panel = document.getElementById('interpretationPanel');
-      if (panel.style.display === 'none') {
+      const interpretationPanel = document.getElementById('interpretationPanel');
+      const jiushenPanel = document.getElementById('jiushenPanel');
+      const jiushenBtn = document.getElementById('toggleJiushen');
+      if (interpretationPanel.style.display === 'none') {
         if (!interpretationsRendered) renderInterpretations();
-        panel.style.display = 'block';
+        interpretationPanel.style.display = 'block';
         this.textContent = '隐藏三才解读';
+        // 自动隐藏签象
+        jiushenPanel.style.display = 'none';
+        jiushenBtn.textContent = '显示签象解读';
       } else {
-        panel.style.display = 'none';
+        interpretationPanel.style.display = 'none';
         this.textContent = '显示三才解读';
       }
     });
 
+    // 九签象解读内容
+    const jiushenMap = {
+      "大安": [
+        "含义：长期、缓慢、稳定",
+        "适用：求安稳时，大安最吉",
+        "不宜：求变化时，大安不吉"
+      ],
+      "留连": [
+        "含义：停止、反复、复杂",
+        "解释：反反复复，剪不断理还乱",
+        "象意：遇到留连会停止，没有进展",
+        "适用：若想挽留，留连是吉",
+        "特殊：若三传中有两个留连，这事就算了吧"
+      ],
+      "速喜": [
+        "含义：惊喜、快速、突然",
+        "象意：意想不到的好事",
+        "注意：若此事需要稳定，速喜反而会带来惊吓"
+      ],
+      "赤口": [
+        "含义：争斗、凶恶、伤害",
+        "解释：吵架、打架、斗争、诉讼是非",
+        "提醒：肉体受伤（尤其是赤口叠现时）"
+      ],
+      "小吉": [
+        "含义：起步、不多、尚可",
+        "象意：成中有缺，不完美，适合起步",
+        "结果：结果不会很多，勉强可以，过程有阻碍"
+      ],
+      "空亡": [
+        "含义：失去、虚伪、空想",
+        "象意：先得再失，尤忌金钱事（金钱、数量、投资）",
+        "提醒：现实之事遇空亡很差；虚幻之事遇空亡很好"
+      ],
+      "病符": [
+        "含义：病态、异常、治疗",
+        "象意：先有病，才需要治；病态 + 治疗 = 病符",
+        "结果：整个过程不好受，不会特别顺利"
+      ],
+      "桃花": [
+        "含义：欲望、牵绊、人际关系",
+        "象意：人际关系，牵绊此事",
+        "适用：除了想谈恋爱，桃花都不好",
+        "特殊：被人牵绊住，被干扰"
+      ],
+      "天德": [
+        "含义：贵人、上司、高远",
+        "象意：求人办事，靠人成事"
+      ]
+    };
+
+    let jiushenRendered = false;
+    function renderJiushen() {
+      if (jiushenRendered) return;
+      const panel = document.getElementById('jiushenPanel');
+      let html = '<table><tr><th>签象</th><th>解读</th></tr>';
+      for (const [key, arr] of Object.entries(jiushenMap)) {
+        html += `<tr><td>${key}</td><td>${arr.join('<br>')}</td></tr>`;
+      }
+      html += '</table>';
+      panel.innerHTML = html;
+      jiushenRendered = true;
+    }
+
+    document.getElementById('toggleJiushen').addEventListener('click', function() {
+      const interpretationPanel = document.getElementById('interpretationPanel');
+      const interpretationBtn = document.getElementById('toggleInterpretation');
+      const jiushenPanel = document.getElementById('jiushenPanel');
+      if (jiushenPanel.style.display === 'none') {
+        if (!jiushenRendered) renderJiushen();
+        jiushenPanel.style.display = 'block';
+        this.textContent = '隐藏签象解读';
+        // 自动隐藏三才
+        interpretationPanel.style.display = 'none';
+        interpretationBtn.textContent = '显示三才解读';
+      } else {
+        jiushenPanel.style.display = 'none';
+        this.textContent = '显示签象解读';
+      }
+    });
+
+    document.getElementById('copyOutput').addEventListener('click', function() {
+      const outputText = document.getElementById('output').innerText;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(outputText)
+          .then(() => { this.textContent = "已复制！"; setTimeout(()=>{this.textContent="复制全部结果"}, 1200); });
+      } else {
+        // 兼容老浏览器
+        const textarea = document.createElement('textarea');
+        textarea.value = outputText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        textarea.remove();
+        this.textContent = "已复制！"; setTimeout(()=>{this.textContent="复制全部结果"}, 1200);
+      }
+    });
   </script>
 </body>
 </html>
