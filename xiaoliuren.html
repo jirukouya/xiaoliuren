@@ -115,7 +115,9 @@
       document.getElementById('output').innerHTML += msg + '<br>';
     }
 
-    // ========== 1. 输入设置 ==========
+    // ==============================
+    // 1. 输入设置
+    // ==============================
     // 示例输入日期和时间（可自定义）
     let inputStr = "2025,09,18,18:37"; // yyyy,MM,dd,HH:mm
 
@@ -156,7 +158,9 @@
     // 设置时区字符串
     const tzStr = "+0800"; // 支持直接传递变量
 
-    // ========== 2. 时区字符串转数字 ==========
+    // ==============================
+    // 2. 时区字符串转数字
+    // ==============================
     // 支持 "+0800"、"-0530"等格式自动转数字
     function parseTimezone(tzStr) {
         let sign = tzStr.startsWith('-') ? -1 : 1;
@@ -167,9 +171,9 @@
     // 解析得到数字型时区
     const timezone = parseTimezone(tzStr);
 
-    // 之后所有 getTrueSolarTime 调用直接用 timezone 即可
-    
-
+    // ==============================
+    // 3. 日期解析与预处理
+    // ==============================
     // 只有 res 有效才继续往下执行
     if (res) {
       [y, m, d] = res.dateVar.split(',').map(s=>parseInt(s,10));
@@ -191,8 +195,49 @@
     print("现在地理位置:Current Location (City), Current Location (State), Current Location (Region)");
 
 
-    // ========== 4. 真太阳时校正（含均时差EoT） ==========
-    // ========== 农历转换 ==========
+    // ==============================
+    // 4. 真太阳时校正（含均时差 EoT）
+    // ==============================
+    // 真太阳时校正（含均时差 EoT）
+    // 计算指定日期、时间、经度、时区下的真太阳时，并返回修正后的小时、分钟和均时差（EoT）
+    function getTrueSolarTimeEoT(year, month, day, hour, minute, longitude, timezone) {
+      function getJulianDay(y, m, d) {
+          if (m <= 2) {
+              y -= 1; m += 12;
+          }
+          const A = Math.floor(y / 100);
+          const B = 2 - A + Math.floor(A / 4);
+          return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+      }
+      function getDayOfYear(y, m, d) {
+          const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+          if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) monthDays[1] = 29;
+          return monthDays.slice(0, m-1).reduce((a,b)=>a+b,0) + d;
+      }
+      let N = getDayOfYear(year, month, day);
+      let B = 2 * Math.PI * (N - 81) / 364;
+      let EoT = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // 单位：分钟
+      let timeInMinutes = hour * 60 + minute;
+      let standardLongitude = timezone * 15;
+      let longitudeCorrection = (longitude - standardLongitude) * 4;
+      let trueTimeInMinutes = timeInMinutes + longitudeCorrection + EoT;
+      let trueHour = Math.floor(trueTimeInMinutes / 60);
+      let trueMinute = Math.round(trueTimeInMinutes % 60);
+      if (trueMinute < 0) {
+          trueMinute += 60;
+          trueHour -= 1;
+      }
+      if (trueHour < 0) trueHour += 24;
+      if (trueHour >= 24) trueHour -= 24;
+      return {
+          hour: trueHour,
+          minute: trueMinute,
+          eot: EoT
+      };
+    }
+    // ==============================
+    // 5. 阳历转农历
+    // ==============================
     function solarToLunar(y, m, d) {
       var lunarInfo = [
         0x04bd8,0x04ae0,0x0a570,0x054d5,0x0d260,0x0d950,0x16554,0x056a0,0x09ad0,0x055d2,
@@ -293,41 +338,6 @@
         isLeap: isLeap
       };
     }
-    function getTrueSolarTimeEoT(year, month, day, hour, minute, longitude, timezone) {
-      function getJulianDay(y, m, d) {
-          if (m <= 2) {
-              y -= 1; m += 12;
-          }
-          const A = Math.floor(y / 100);
-          const B = 2 - A + Math.floor(A / 4);
-          return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
-      }
-      function getDayOfYear(y, m, d) {
-          const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
-          if ((y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0)) monthDays[1] = 29;
-          return monthDays.slice(0, m-1).reduce((a,b)=>a+b,0) + d;
-      }
-      let N = getDayOfYear(year, month, day);
-      let B = 2 * Math.PI * (N - 81) / 364;
-      let EoT = 9.87 * Math.sin(2*B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B); // 单位：分钟
-      let timeInMinutes = hour * 60 + minute;
-      let standardLongitude = timezone * 15;
-      let longitudeCorrection = (longitude - standardLongitude) * 4;
-      let trueTimeInMinutes = timeInMinutes + longitudeCorrection + EoT;
-      let trueHour = Math.floor(trueTimeInMinutes / 60);
-      let trueMinute = Math.round(trueTimeInMinutes % 60);
-      if (trueMinute < 0) {
-          trueMinute += 60;
-          trueHour -= 1;
-      }
-      if (trueHour < 0) trueHour += 24;
-      if (trueHour >= 24) trueHour -= 24;
-      return {
-          hour: trueHour,
-          minute: trueMinute,
-          eot: EoT
-      };
-    }
 
     if(res && lunar && trueSolar){
       print("");
@@ -345,7 +355,9 @@
     }
 
 
-    // ========== 6. 真太阳时的时辰 ==========
+    // ==============================
+    // 6. 真太阳时的时辰
+    // ==============================
     function getShichenNumber(hour, minute) {
       var shichenList = [
         { num: 1, name: "子", label: "子时", start: 23, end: 0 },
@@ -387,7 +399,9 @@
     }
 
 
-    // ========== 7. 小六壬相关计算 ==========
+    // ==============================
+    // 7. 小六壬相关计算
+    // ==============================
     function sumLunarAndShichen(lunar, sc) {
       let sum = lunar.month + lunar.day + sc.num;
       let result = sum - 2;
@@ -480,6 +494,11 @@
 
     xiaoliurenSanChuan(monthNum, dayNum, shichenNum);
     xiaoliurenMiChuan(monthNum, dayNum, shichenNum);
+
+
+    // ==============================
+    // 8. 展示面板（按钮与渲染：三才/九神解释）
+    // ==============================
 
     let interpretationsRendered = false;
     function renderInterpretations() {
@@ -591,6 +610,11 @@
         this.textContent = '显示签象解读';
       }
     });
+
+
+    // ==============================
+    // 9. 复制按钮
+    // ==============================
 
     document.getElementById('copyOutput').addEventListener('click', function() {
       const outputText = document.getElementById('output').innerText;
